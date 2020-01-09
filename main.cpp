@@ -697,60 +697,67 @@ inline bool _32bytesUintLessThan(const std::vector<uint8_t>& a ,const std::vecto
             ((b1 == a1) && (b2 == a2) && (b3 ==  a3) && (b4 > a4) ) ; 
 }
 
+void hash_scan(std::string nonce1, std::string headerHash, std::string target)
+{
+  std::vector<uint8_t> targetBin = hex2bin(target);
+
+  // 如果不想使用 bigInt 库，我们就来自己造下轮子 
+  // 要枚举的 nonce2 是 12 个 bytes 
+  //  - uint64_t 是 8 bytes 
+  //  - uint32_t 是 4 bytes  
+  // 于是，我们可以把 nonce2 看成是  一个 4 字节的 uint32_t 和 8个字节的 uint64_t 
+  // 我们分别叫它们 nonce2High , nonce2Low 
+
+ // nonce2 loop 
+ for(uint32_t nonce2High =0; ; ++nonce2High) {
+     for(uint64_t nonce2Low = 0 ;; ++nonce2Low){
+         // 但是要小心，因为 x86 是 little endian， 这里做了 swap 得到对应的 big endian 的表示
+         uint32_t nonce2HighBE = __builtin_bswap32(nonce2High);
+         uint64_t nonce2LowBE = __builtin_bswap64(nonce2Low);
+         // 这里我之前用的 shift 的方式只是为了方便理解
+         // 可能反而给你们造成困扰了 
+         // 这里先做 hex 字符串拼接，再转换回去变成 bin 
+         std::string hashInputHex = headerHash + 
+                                    nonce1 + 
+                                    bin2hex(reinterpret_cast<uint8_t*>(&nonce2HighBE),sizeof(nonce2HighBE)) +
+                                    bin2hex(reinterpret_cast<uint8_t*>(&nonce2LowBE),sizeof(nonce2LowBE));
+
+         // hashInputBin.size()  == 48 
+         std::vector<uint8_t> hashInputBin = hex2bin(hashInputHex);
+         
+         // eaglesong hash 的结果是 32 个字节的二进制数 
+         std::vector<uint8_t> eaglesongHashBin; 
+         eaglesongHashBin.resize(32);
+
+         // 计算 eaglesong hash，结果返回到 eaglesongHashBin 里面
+         EaglesongHash(&eaglesongHashBin[0],&hashInputBin[0],hashInputBin.size());
+         if (_32bytesUintLessThan(eaglesongHashBin,targetBin)){
+             // 找到一个 nonce2 了！！
+           printf("founded! %s \n", hashInputHex.c_str());
+         }else{
+					 printf("not matched! %s \n", hashInputHex.c_str());
+         }
+
+         if(nonce2Low == UINT64_MAX){
+             // 这个 nonce2High 读应的 nonce2Low 已经全部枚举完 
+						 printf("finished nonce2High! \n");
+             break;
+         }
+     }
+
+     if(nonce2High == UINT32_MAX){
+         // 所有 nonce2  至此已经枚举完了 
+				 printf("finished nonce2! \n");
+         break; 
+     }
+ }
+}
+
 int main(int argc, char const *argv[])
 {
     std::string nonce1= "00c904bd";
     std::string headerHash = "d5a74fba920ad0d35ec5726f26327547cbc82180e356e5ccf6cf2e6bd75f8a66";
     std::string target = "0001000000000000000000000000000000000000000000000000000000000000";
-    std::vector<uint8_t> targetBin = hex2bin(target);
-
-    // 如果不想使用 bigInt 库，我们就来自己造下轮子 
-    // 要枚举的 nonce2 是 12 个 bytes 
-    //  - uint64_t 是 8 bytes 
-    //  - uint32_t 是 4 bytes  
-    // 于是，我们可以把 nonce2 看成是  一个 4 字节的 uint32_t 和 8个字节的 uint64_t 
-    // 我们分别叫它们 nonce2High , nonce2Low 
-
-   // nonce2 loop 
-   for(uint32_t nonce2High =0; ; ++nonce2High) {
-       for(uint64_t nonce2Low = 0 ;; ++nonce2Low){
-           // 但是要小心，因为 x86 是 little endian， 这里做了 swap 得到对应的 big endian 的表示
-           uint32_t nonce2HighBE = __builtin_bswap32(nonce2High);
-           uint64_t nonce2LowBE = __builtin_bswap64(nonce2Low);
-           // 这里我之前用的 shift 的方式只是为了方便理解
-           // 可能反而给你们造成困扰了 
-           // 这里先做 hex 字符串拼接，再转换回去变成 bin 
-           std::string hashInputHex = headerHash + 
-                                      nonce1 + 
-                                      bin2hex(reinterpret_cast<uint8_t*>(&nonce2HighBE),sizeof(nonce2HighBE)) +
-                                      bin2hex(reinterpret_cast<uint8_t*>(&nonce2LowBE),sizeof(nonce2LowBE));
-
-           // hashInputBin.size()  == 48 
-           std::vector<uint8_t> hashInputBin = hex2bin(hashInputHex);
-           
-           // eaglesong hash 的结果是 32 个字节的二进制数 
-           std::vector<uint8_t> eaglesongHashBin; 
-           eaglesongHashBin.resize(32);
-
-           // 计算 eaglesong hash，结果返回到 eaglesongHashBin 里面
-           EaglesongHash(&eaglesongHashBin[0],&hashInputBin[0],hashInputBin.size());
-           if (_32bytesUintLessThan(eaglesongHashBin,targetBin)){
-               // 找到一个 nonce2 了！！
-             printf("founded! %s \n", hashInputHex.c_str());
-           }else{
-						 printf("not matched! %s \n", hashInputHex.c_str());
-           }
-
-           if(nonce2Low == UINT64_MAX){
-               // 这个 nonce2High 读应的 nonce2Low 已经全部枚举完 
-							 printf("finished! \n");
-               break;
-           }
-       }
-
-       if(nonce2High == UINT32_MAX){
-           // 所有 nonce2  至此已经枚举完了 
-           break; 
-       }
-   }
+    
+		hash_scan(nonce1, headerHash, target);
 }
