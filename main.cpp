@@ -734,8 +734,9 @@ void hash_scan(std::string nonce1, std::string headerHash, std::string target)
          if (_32bytesUintLessThan(eaglesongHashBin,targetBin)){
              // 找到一个 nonce2 了！！
            printf("founded! %s \n", hashInputHex.c_str());
+					 return;
          }else{
-					 printf("not matched! %s \n", hashInputHex.c_str());
+					 printf(".");
          }
 
          if(nonce2Low == UINT64_MAX){
@@ -757,7 +758,8 @@ int main(int argc, char const *argv[])
 {
     std::string nonce1= "00c904bd";
     std::string headerHash = "d5a74fba920ad0d35ec5726f26327547cbc82180e356e5ccf6cf2e6bd75f8a66";
-    std::string target = "0001000000000000000000000000000000000000000000000000000000000000";
+    // std::string target = "0001000000000000000000000000000000000000000000000000000000000000";
+		std::string target = "0000100000000000000000000000000000000000000000000000000000000000";
     
 		hash_scan(nonce1, headerHash, target);
 }
