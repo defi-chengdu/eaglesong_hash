@@ -1,0 +1,7 @@
+*.o
+*.gch
+*.sublime-project
+*.sublime-workspace
+*.dSYM
+.DS_Store
+main
